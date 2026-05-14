@@ -12,7 +12,17 @@ Before invoking a tool, you must carefully evaluate whether it matches the curre
 Always prioritize completing the user's task effectively and efficiently by using tools whenever appropriate.</system-reminder>`,
     });
     if (request.tools?.length) {
-      request.tool_choice = "required";
+      // Reasoning models that reject tool_choice="required" in thinking mode:
+      // confirmed for DeepSeek (deepseek-reasoner / deepseek-v4-pro / -flash);
+      // applied to Qwen as well as a precaution since iris-runtime routes
+      // both providers through the same openrouter+tooluse chain and they
+      // share the same backend constraints (AIGW upstream of these models).
+      // Other providers (Claude, GPT, Gemini, etc.) keep "required" — only
+      // narrow the change to the affected model families.
+      const isThinking = !!(request as any).thinking;
+      const model = ((request as any).model || "").toLowerCase();
+      const isAffected = model.includes("deepseek") || model.includes("qwen");
+      request.tool_choice = (isThinking && isAffected) ? "auto" : "required";
       request.tools.push({
         type: "function",
         function: {
