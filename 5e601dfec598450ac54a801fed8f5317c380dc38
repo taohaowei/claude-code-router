@@ -1,0 +1,53 @@
+packages/core/src/utils/reasoning-store.ts
+  ad2ef7368e9d9881 1-38
+packages/core/src/transformer/deepseek.transformer.ts
+  ad2ef7368e9d9881 3-7,18-23,26-29,31,33-37,62-76,114-115,244-251
+package.json
+  ad2ef7368e9d9881 2-13,42
+packages/core/src/transformer/openrouter.transformer.ts
+  ad2ef7368e9d9881 4-8,18-27,32-42,102-116,153,382-390
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.2.8-ntes.7",
+  "base_commit_sha": "5e601dfec598450ac54a801fed8f5317c380dc38",
+  "prompts": {
+    "ad2ef7368e9d9881": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7379825c-e6e2-4efb-b9e8-c0d837cd7f3b",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "taohaowei",
+      "messages": [],
+      "total_additions": 148,
+      "total_deletions": 21,
+      "accepted_lines": 169,
+      "overriden_lines": 0,
+      "per_file_stats": {
+        "packages/core/src/transformer/deepseek.transformer.ts": {
+          "additions": 46,
+          "deletions": 7,
+          "accepted_lines": 46
+        },
+        "packages/core/src/transformer/openrouter.transformer.ts": {
+          "additions": 51,
+          "deletions": 10,
+          "accepted_lines": 51
+        },
+        "package.json": {
+          "additions": 13,
+          "deletions": 4,
+          "accepted_lines": 13
+        },
+        "packages/core/src/transformer/flattencontent.transformer.ts": {
+          "accepted_lines": 21
+        },
+        "packages/core/src/utils/reasoning-store.ts": {
+          "additions": 38,
+          "accepted_lines": 38
+        }
+      }
+    }
+  }
+}
