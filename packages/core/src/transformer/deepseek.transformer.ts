@@ -1,5 +1,10 @@
 import { UnifiedChatRequest } from "../types/llm";
 import { Transformer } from "../types/transformer";
+import {
+  storeReasoning,
+  getReasoning,
+  keyFromToolCalls,
+} from "../utils/reasoning-store";
 
 export class DeepseekTransformer implements Transformer {
   name = "deepseek";
@@ -10,16 +15,26 @@ export class DeepseekTransformer implements Transformer {
     }
 
     // DeepSeek V4 thinking mode requires replaying prior reasoning_content
-    // on subsequent turns. Claude-style requests carry this in message.thinking.
+    // on subsequent turns. Two sources, in priority order:
+    //   1. message.thinking.content — present when client (e.g. Claude Code)
+    //      forwards the parsed thinking blocks back. Anthropic transformer
+    //      handles this case at the entry layer.
+    //   2. in-memory store keyed by tool_call IDs — fallback for clients
+    //      that strip thinking blocks before replaying tool-call rounds.
     if (Array.isArray((request as any).messages)) {
       for (const msg of (request as any).messages) {
-        if (
-          msg?.role === "assistant" &&
-          msg?.thinking?.content &&
-          !msg?.reasoning_content
-        ) {
+        if (msg?.role !== "assistant") continue;
+        if (msg?.reasoning_content) continue;
+
+        if (msg?.thinking?.content) {
           msg.reasoning_content = msg.thinking.content;
+          continue;
         }
+
+        const key = keyFromToolCalls(msg.tool_calls);
+        if (!key) continue;
+        const stored = getReasoning(key);
+        if (stored) msg.reasoning_content = stored;
       }
     }
 
@@ -44,7 +59,21 @@ export class DeepseekTransformer implements Transformer {
       const encoder = new TextEncoder();
       let reasoningContent = "";
       let isReasoningComplete = false;
-      let buffer = ""; // 用于缓冲不完整的数据
+      let buffer = ""; // Buffer for incomplete data
+
+      // Tool-call IDs emitted by the assistant in this response. Used to key
+      // the reasoning store so a future request that re-includes this assistant
+      // turn can have its reasoning_content reinjected by transformRequestIn.
+      const collectedToolCallIds: string[] = [];
+      const captureToolCallIds = (data: any) => {
+        const tcArr = data?.choices?.[0]?.delta?.tool_calls;
+        if (!Array.isArray(tcArr)) return;
+        for (const tc of tcArr) {
+          if (tc && typeof tc.id === "string" && !collectedToolCallIds.includes(tc.id)) {
+            collectedToolCallIds.push(tc.id);
+          }
+        }
+      };
 
       const stream = new ReadableStream({
         async start(controller) {
@@ -81,6 +110,8 @@ export class DeepseekTransformer implements Transformer {
             ) {
               try {
                 const data = JSON.parse(line.slice(6));
+
+                captureToolCallIds(data);
 
                 // Extract reasoning_content from delta
                 if (data.choices?.[0]?.delta?.reasoning_content) {
@@ -210,6 +241,14 @@ export class DeepseekTransformer implements Transformer {
             console.error("Stream error:", error);
             controller.error(error);
           } finally {
+            // Persist captured reasoning so future requests that re-send this
+            // assistant turn (with tool_calls) can have it reinjected by
+            // transformRequestIn. Required by DeepSeek V4 thinking mode.
+            if (reasoningContent && collectedToolCallIds.length > 0) {
+              const key = collectedToolCallIds.slice().sort().join("|");
+              storeReasoning(key, reasoningContent);
+            }
+
             try {
               reader.releaseLock();
             } catch (e) {

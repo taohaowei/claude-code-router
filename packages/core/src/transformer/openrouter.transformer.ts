@@ -1,6 +1,11 @@
 import { UnifiedChatRequest } from "@/types/llm";
 import { Transformer, TransformerOptions } from "../types/transformer";
 import { v4 as uuidv4 } from "uuid";
+import {
+  storeReasoning,
+  getReasoning,
+  keyFromToolCalls,
+} from "../utils/reasoning-store";
 
 export class OpenrouterTransformer implements Transformer {
   static TransformerName = "openrouter";
@@ -10,19 +15,31 @@ export class OpenrouterTransformer implements Transformer {
   async transformRequestIn(
     request: UnifiedChatRequest
   ): Promise<UnifiedChatRequest> {
-    // DeepSeek V4 thinking 模式（包括 OpenRouter / aigw 等中转网关后端为 deepseek 的场景）
-    // 要求把上一轮 assistant 的思考内容回传，否则报 400。Claude Code 通过
-    // anthropic.transformer 入口解析后存在 message.thinking.content，
-    // 这里同时映射到 reasoning（OpenRouter 原生字段）和 reasoning_content（DeepSeek 字段），
-    // 兼容两类后端。
+    // Replay reasoning across turns for DeepSeek-backed gateways (incl. AIGW)
+    // when this transformer is used for a deepseek model. Two sources, in
+    // priority order:
+    //   1. message.thinking.content from the anthropic transformer entry
+    //      (when the client retains thinking blocks across turns).
+    //   2. in-memory reasoning store keyed by tool_call IDs (fallback for
+    //      clients like Claude Code CLI that strip thinking blocks during
+    //      tool-use multi-turn loops).
+    // Field mapping: reasoning (OpenRouter native) and reasoning_content
+    // (DeepSeek wire format) — set both to cover both backend types.
     if (Array.isArray(request.messages)) {
       for (const msg of request.messages) {
         const m = msg as any;
         if (m?.role !== "assistant") continue;
-        const thinkingContent = m?.thinking?.content;
-        if (!thinkingContent) continue;
-        if (!m.reasoning_content) m.reasoning_content = thinkingContent;
-        if (!m.reasoning) m.reasoning = thinkingContent;
+        if (m.reasoning_content && m.reasoning) continue;
+
+        let payload: string | undefined = m?.thinking?.content;
+        if (!payload) {
+          const key = keyFromToolCalls(m.tool_calls);
+          if (key) payload = getReasoning(key);
+        }
+        if (!payload) continue;
+
+        if (!m.reasoning_content) m.reasoning_content = payload;
+        if (!m.reasoning) m.reasoning = payload;
       }
     }
 
@@ -82,7 +99,21 @@ export class OpenrouterTransformer implements Transformer {
       let reasoningContent = "";
       let isReasoningComplete = false;
       let hasToolCall = false;
-      let buffer = ""; // 用于缓冲不完整的数据
+      let buffer = ""; // Buffer for incomplete data
+
+      // Tool-call IDs emitted by the assistant in this response. Used to key
+      // the reasoning store so a future request that re-includes this assistant
+      // turn can have its reasoning_content reinjected by transformRequestIn.
+      const collectedToolCallIds: string[] = [];
+      const captureToolCallIds = (data: any) => {
+        const tcArr = data?.choices?.[0]?.delta?.tool_calls;
+        if (!Array.isArray(tcArr)) return;
+        for (const tc of tcArr) {
+          if (tc && typeof tc.id === "string" && !collectedToolCallIds.includes(tc.id)) {
+            collectedToolCallIds.push(tc.id);
+          }
+        }
+      };
 
       const stream = new ReadableStream({
         async start(controller) {
@@ -119,6 +150,7 @@ export class OpenrouterTransformer implements Transformer {
               const jsonStr = line.slice(6);
               try {
                 const data = JSON.parse(jsonStr);
+                captureToolCallIds(data);
                 if (data.usage) {
                   this.logger?.debug(
                     { usage: data.usage, hasToolCall },
@@ -347,6 +379,15 @@ export class OpenrouterTransformer implements Transformer {
             console.error("Stream error:", error);
             controller.error(error);
           } finally {
+            // Persist captured reasoning so future requests that re-send this
+            // assistant turn (with tool_calls) can have it reinjected by
+            // transformRequestIn. Required by DeepSeek V4 thinking mode when
+            // running through OpenRouter / AIGW with deepseek backend.
+            if (reasoningContent && collectedToolCallIds.length > 0) {
+              const key = collectedToolCallIds.slice().sort().join("|");
+              storeReasoning(key, reasoningContent);
+            }
+
             try {
               reader.releaseLock();
             } catch (e) {

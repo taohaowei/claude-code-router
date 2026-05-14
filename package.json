@@ -1,7 +1,16 @@
 {
-  "name": "@musistudio/claude-code-router",
-  "version": "2.0.0",
-  "description": "Use Claude Code without an Anthropics account and route it to another LLM provider",
+  "name": "@taohaowei/claude-code-router",
+  "version": "2.0.1",
+  "description": "Fork of @musistudio/claude-code-router with multi-turn DeepSeek thinking-mode fix (reasoning_content replay) for openrouter and deepseek transformer chains.",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/taohaowei/claude-code-router.git"
+  },
+  "homepage": "https://github.com/taohaowei/claude-code-router/tree/fix/deepseek-reasoning-multiturn",
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
   "scripts": {
     "build": "pnpm build:shared && pnpm build:core && pnpm build:server && pnpm build:cli && pnpm build:ui",
     "build:core": "pnpm --filter @musistudio/llms build",
@@ -30,7 +39,7 @@
     "llm",
     "anthropic"
   ],
-  "author": "musistudio",
+  "author": "taohaowei (fork of musistudio/claude-code-router)",
   "license": "MIT",
   "devDependencies": {
     "@types/node": "^24.0.15",
