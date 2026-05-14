@@ -1,0 +1,31 @@
+packages/core/src/transformer/tooluse.transformer.ts
+  ad2ef7368e9d9881 15-25
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.2.8-ntes.7",
+  "base_commit_sha": "cc539d1283d807156abfd6647e6796b2abfbc2b7",
+  "prompts": {
+    "ad2ef7368e9d9881": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7379825c-e6e2-4efb-b9e8-c0d837cd7f3b",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": null,
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 32,
+      "overriden_lines": 0,
+      "per_file_stats": {
+        "packages/core/src/transformer/flattencontent.transformer.ts": {
+          "accepted_lines": 21
+        },
+        "packages/core/src/transformer/tooluse.transformer.ts": {
+          "accepted_lines": 11
+        }
+      }
+    }
+  }
+}
