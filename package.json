@@ -1,6 +1,6 @@
 {
   "name": "@taohaowei/claude-code-router",
-  "version": "2.0.3",
+  "version": "2.0.5",
   "description": "Fork of @musistudio/claude-code-router with multi-turn DeepSeek thinking-mode fix (reasoning_content replay) for openrouter and deepseek transformer chains.",
   "repository": {
     "type": "git",
