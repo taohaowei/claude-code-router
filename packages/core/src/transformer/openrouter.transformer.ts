@@ -146,8 +146,13 @@ export class OpenrouterTransformer implements Transformer {
           ) => {
             const { controller, encoder } = context;
 
-            if (line.startsWith("data: ") && line.trim() !== "data: [DONE]") {
-              const jsonStr = line.slice(6);
+            // Accept both "data: {...}" and "data:{...}" (no space) — DeepSeek
+            // / AIGW emits the latter. SSE spec allows the optional space.
+            const trimmedLine = line.trim();
+            const isData = trimmedLine.startsWith("data:");
+            const isDone = trimmedLine === "data:[DONE]" || trimmedLine === "data: [DONE]";
+            if (isData && !isDone) {
+              const jsonStr = trimmedLine.slice(5).trimStart();
               try {
                 const data = JSON.parse(jsonStr);
                 captureToolCallIds(data);
@@ -178,11 +183,16 @@ export class OpenrouterTransformer implements Transformer {
                   context.setHasTextContent(true);
                 }
 
-                // Extract reasoning_content from delta
-                if (data.choices?.[0]?.delta?.reasoning) {
-                  context.appendReasoningContent(
-                    data.choices[0].delta.reasoning
-                  );
+                // Extract reasoning content from delta. Different backends
+                // use different field names: OpenRouter native uses
+                // `reasoning`, DeepSeek (and AIGW upstream of deepseek) uses
+                // `reasoning_content`. Accept both so reasoningContent and
+                // the reasoning store get populated regardless of backend.
+                const reasoningDelta =
+                  data.choices?.[0]?.delta?.reasoning ??
+                  data.choices?.[0]?.delta?.reasoning_content;
+                if (reasoningDelta) {
+                  context.appendReasoningContent(reasoningDelta);
                   const thinkingChunk = {
                     ...data,
                     choices: [
@@ -191,7 +201,7 @@ export class OpenrouterTransformer implements Transformer {
                         delta: {
                           ...data.choices[0].delta,
                           thinking: {
-                            content: data.choices[0].delta.reasoning,
+                            content: reasoningDelta,
                           },
                         },
                       },
@@ -199,6 +209,7 @@ export class OpenrouterTransformer implements Transformer {
                   };
                   if (thinkingChunk.choices?.[0]?.delta) {
                     delete thinkingChunk.choices[0].delta.reasoning;
+                    delete thinkingChunk.choices[0].delta.reasoning_content;
                   }
                   const thinkingLine = `data: ${JSON.stringify(
                     thinkingChunk
@@ -234,6 +245,7 @@ export class OpenrouterTransformer implements Transformer {
                   };
                   if (thinkingChunk.choices?.[0]?.delta) {
                     delete thinkingChunk.choices[0].delta.reasoning;
+                    delete thinkingChunk.choices[0].delta.reasoning_content;
                   }
                   const thinkingLine = `data: ${JSON.stringify(
                     thinkingChunk
@@ -243,6 +255,9 @@ export class OpenrouterTransformer implements Transformer {
 
                 if (data.choices?.[0]?.delta?.reasoning) {
                   delete data.choices[0].delta.reasoning;
+                }
+                if (data.choices?.[0]?.delta?.reasoning_content) {
+                  delete data.choices[0].delta.reasoning_content;
                 }
                 if (
                   data.choices?.[0]?.delta?.tool_calls?.length &&
@@ -289,7 +304,7 @@ export class OpenrouterTransformer implements Transformer {
             while (true) {
               const { done, value } = await reader.read();
               if (done) {
-                // 处理缓冲区中剩余的数据
+                // Flush remaining buffer
                 if (buffer.trim()) {
                   processBuffer(buffer, controller, encoder);
                 }
