@@ -10,6 +10,22 @@ export class OpenrouterTransformer implements Transformer {
   async transformRequestIn(
     request: UnifiedChatRequest
   ): Promise<UnifiedChatRequest> {
+    // DeepSeek V4 thinking 模式（包括 OpenRouter / aigw 等中转网关后端为 deepseek 的场景）
+    // 要求把上一轮 assistant 的思考内容回传，否则报 400。Claude Code 通过
+    // anthropic.transformer 入口解析后存在 message.thinking.content，
+    // 这里同时映射到 reasoning（OpenRouter 原生字段）和 reasoning_content（DeepSeek 字段），
+    // 兼容两类后端。
+    if (Array.isArray(request.messages)) {
+      for (const msg of request.messages) {
+        const m = msg as any;
+        if (m?.role !== "assistant") continue;
+        const thinkingContent = m?.thinking?.content;
+        if (!thinkingContent) continue;
+        if (!m.reasoning_content) m.reasoning_content = thinkingContent;
+        if (!m.reasoning) m.reasoning = thinkingContent;
+      }
+    }
+
     if (!request.model.includes("claude")) {
       request.messages.forEach((msg) => {
         if (Array.isArray(msg.content)) {
