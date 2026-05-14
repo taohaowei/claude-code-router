@@ -1,7 +1,65 @@
+packages/shared/package.json
+  ad2ef7368e9d9881 3
+package.json
+  ad2ef7368e9d9881 3
+packages/ui/package.json
+  ad2ef7368e9d9881 4
+packages/server/package.json
+  ad2ef7368e9d9881 3
+packages/cli/package.json
+  ad2ef7368e9d9881 3
 ---
 {
   "schema_version": "authorship/3.0.0",
   "git_ai_version": "1.2.8-ntes.7",
-  "base_commit_sha": "160c81b80f8302646f63e7ad243a8ee6e6ab9d6f",
-  "prompts": {}
+  "base_commit_sha": "d53db7a08a49ce4dcc9be0b80dcd9471fb457857",
+  "prompts": {
+    "ad2ef7368e9d9881": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7379825c-e6e2-4efb-b9e8-c0d837cd7f3b",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "taohaowei",
+      "messages": [],
+      "total_additions": 26,
+      "total_deletions": 5,
+      "accepted_lines": 38,
+      "overriden_lines": 0,
+      "per_file_stats": {
+        "packages/core/src/transformer/tooluse.transformer.ts": {
+          "accepted_lines": 11
+        },
+        "packages/cli/package.json": {
+          "additions": 1,
+          "deletions": 1,
+          "accepted_lines": 1
+        },
+        "packages/shared/package.json": {
+          "additions": 1,
+          "deletions": 1,
+          "accepted_lines": 1
+        },
+        "package.json": {
+          "additions": 1,
+          "deletions": 1,
+          "accepted_lines": 1
+        },
+        "packages/server/package.json": {
+          "additions": 1,
+          "deletions": 1,
+          "accepted_lines": 1
+        },
+        "packages/core/src/transformer/flattencontent.transformer.ts": {
+          "additions": 21,
+          "accepted_lines": 42
+        },
+        "packages/ui/package.json": {
+          "additions": 1,
+          "deletions": 1,
+          "accepted_lines": 1
+        }
+      }
+    }
+  }
 }
